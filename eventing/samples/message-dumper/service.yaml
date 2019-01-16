@@ -1,0 +1,24 @@
+# This is a very simple Knative Service that writes the input request to its log.
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: message-dumper
+spec:
+  runLatest:
+    configuration:
+      build:
+        source:
+          git:
+            url: https://github.com/evankanderson/docs.git
+            revision: message-dumper
+          subPath: eventing/samples/message-dumper
+        template:
+          name: pyfn
+          arguments:
+          - name: IMAGE
+            value: gcr.io/argent-gke/pyfun-dumper
+        serviceAccountName: builder
+      revisionTemplate:
+        spec:
+          container:
+            image: gcr.io/argent-gke/pyfun-dumper

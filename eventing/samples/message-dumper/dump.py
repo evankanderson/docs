@@ -1,10 +1,10 @@
 # Function to execute in decoupled execution mode.
-import run
+from pyfun_events import Get,Handle
 import logging
 
 _received = []
 
-@run.Handle
+@Handle
 def LogEvent(data :str, context: dict):
     _received.append((data, context))
 
@@ -20,7 +20,7 @@ def LogEvent(data :str, context: dict):
     out.append('')
     return '\n'.join(out)
 
-@run.Get
+@Get
 def ShowEvents():
     out = ['<!DOCTYPE html><html><body>']
     out.append(f'<!--{_received}-->')

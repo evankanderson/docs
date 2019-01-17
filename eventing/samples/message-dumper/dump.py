@@ -4,16 +4,12 @@ import logging
 
 _received = []
 
-@Handle
+@Handle(str)
 def LogEvent(data :str, context: dict):
     _received.append((data, context))
 
     out = [str(data)]
     logging.info(context.Properties())
-    # for k, v in context.Properties().items():
-    #     if k == 'data':
-    #         continue
-    #     out.append(f'  {k}: {v}')
     out.extend((f'  {k}: {v}' for k, v in context.Properties().items() if k != 'data'))
     out.append('-----')
     logging.info('\n'.join(out))

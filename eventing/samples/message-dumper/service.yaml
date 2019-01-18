@@ -22,3 +22,6 @@ spec:
         spec:
           container:
             image: gcr.io/argent-gke/pyfun-dumper
+            resources:
+              requests:
+                cpu: 100m

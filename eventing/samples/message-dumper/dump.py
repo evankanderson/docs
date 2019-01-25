@@ -4,7 +4,7 @@ import logging
 
 _received = []
 
-@Handle(str)
+@Handle(unpack=str)
 def LogEvent(data :str, context: dict):
     _received.append((data, context))
 

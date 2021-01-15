@@ -23,6 +23,7 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 REFDOCS_PKG="github.com/ahmetb/gen-crd-api-reference-docs"
 REFDOCS_REPO="https://${REFDOCS_PKG}.git"
+# Somewhere past 0.20.0 to pick up a constants fix
 REFDOCS_VER="df869c1245d4ba97142a224ab81e5ced86094bba"
 
 KNATIVE_SERVING_REPO="github.com/knative/serving"
@@ -34,11 +35,6 @@ KNATIVE_EVENTING_REPO="github.com/knative/eventing"
 KNATIVE_EVENTING_IMPORT_PATH="knative.dev/eventing"
 KNATIVE_EVENTING_COMMIT="${KNATIVE_EVENTING_COMMIT:?specify the \$KNATIVE_EVENTING_COMMIT variable}"
 KNATIVE_EVENTING_OUT_FILE="eventing/eventing.md"
-
-# KNATIVE_EVENTING_CONTRIB_REPO="github.com/knative/eventing-contrib"
-# KNATIVE_EVENTING_CONTRIB_IMPORT_PATH="knative.dev/eventing-contrib"
-# KNATIVE_EVENTING_CONTRIB_COMMIT="${KNATIVE_EVENTING_CONTRIB_COMMIT:?specify the \$KNATIVE_EVENTING_CONTRIB_COMMIT variable}"
-# KNATIVE_EVENTING_CONTRIB_OUT_FILE="eventing/eventing-contrib.md"
 
 cleanup_refdocs_root=
 cleanup_repo_clone_root=
@@ -64,31 +60,15 @@ install_go_bin() {
     )
 }
 
-repo_tarball_url() {
-    local repo commit
-    repo="$1"
-    commit="$2"
-    echo "https://$repo/archive/$commit.tar.gz"
-}
-
-dl_and_extract() {
-    # TODO(ahmetb) remove this function. no longer dl'ing tarballs since they
-    # won't have a .git dir to infer the commit ID from to be used by refdocs.
-    local url dest
-    url="$1"
-    dest="$2"
-    mkdir -p "${dest}"
-    curl -sSLf "$url" | tar zxf - --directory="$dest"  --strip 1
-}
-
 clone_at_commit() {
     local repo commit dest
     repo="$1"
     commit="$2"
     dest="$3"
     mkdir -p "${dest}"
-    git clone "${repo}" "${dest}"
-    git --git-dir="${dest}/.git" --work-tree="${dest}" checkout --detach --quiet "${commit}"
+    # Do a shallow clone of just that branch; this can save 90% of the download
+    # size
+    git clone "${repo}" --branch "${commit}" --single-branch --depth 1 "${dest}"
 }
 
 gen_refdocs() {
@@ -137,7 +117,7 @@ main() {
     refdocs_dir="$(mktemp -d)"
     cleanup_refdocs_root="${refdocs_dir}"
     # clone repo for ./templates
-    git clone --quiet --depth=1 "${REFDOCS_REPO}" "${refdocs_dir}"
+    clone_at_commit "${REFDOCS_REPO}" "${REFDOCS_VER}" "${refdocs_dir}"
     template_dir="${refdocs_dir}/template"
     # install bin
     install_go_bin "${REFDOCS_PKG}@${REFDOCS_VER}"
@@ -150,7 +130,7 @@ main() {
     local clone_root out_dir
     clone_root="$(mktemp -d)"
     cleanup_repo_clone_root="${clone_root}"
-    out_dir="$(mktemp -d)"
+    out_dir="${SCRIPTDIR}/../docs/reference"
 
     local knative_serving_root
     knative_serving_root="${clone_root}/src/${KNATIVE_SERVING_IMPORT_PATH}"
@@ -166,21 +146,8 @@ main() {
     gen_refdocs "${refdocs_bin}" "${clone_root}" "${template_dir}" \
         "${out_dir}/${KNATIVE_EVENTING_OUT_FILE}" "${knative_eventing_root}" "./pkg/apis"
 
-    # local knative_eventing_contrib_root
-    # knative_eventing_contrib_root="${clone_root}/src/${KNATIVE_EVENTING_CONTRIB_IMPORT_PATH}"
-    # clone_at_commit "https://${KNATIVE_EVENTING_CONTRIB_REPO}.git" "${KNATIVE_EVENTING_CONTRIB_COMMIT}" \
-    #     "${knative_eventing_contrib_root}"
-    # gen_refdocs "${refdocs_bin}" "${clone_root}" "${template_dir}" \
-    #     "${out_dir}/${KNATIVE_EVENTING_CONTRIB_OUT_FILE}" "${knative_eventing_contrib_root}" "."
-
     log "SUCCESS: Generated docs written to ${out_dir}/."
-    log "Opening the ${out_dir}/ directory. You can now copy these API files"
-    log "from ${out_dir}/, into the 'docs/reference/' directory of knative/docs."
-    if command -v xdg-open >/dev/null; then
-        xdg-open "${out_dir}/"
-    elif command -v open >/dev/null; then
-        open "${out_dir}/"
-    fi
+    log "You can commit these changes now."
 }
 
 main "$@"

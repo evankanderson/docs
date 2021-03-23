@@ -23,8 +23,7 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 REFDOCS_PKG="github.com/ahmetb/gen-crd-api-reference-docs"
 REFDOCS_REPO="https://${REFDOCS_PKG}.git"
-# Somewhere past 0.20.0 to pick up a constants fix
-REFDOCS_VER="df869c1245d4ba97142a224ab81e5ced86094bba"
+REFDOCS_VER="v0.3.0"
 
 KNATIVE_SERVING_REPO="github.com/knative/serving"
 KNATIVE_SERVING_IMPORT_PATH="knative.dev/serving"
@@ -58,6 +57,13 @@ install_go_bin() {
         go get -u "$pkg"
         # will be downloaded to "$(go env GOPATH)/bin/$(basename $pkg)"
     )
+}
+
+repo_tarball_url() {
+    local repo commit
+    repo="$1"
+    commit="$2"
+    echo "https://$repo/archive/$commit.tar.gz"
 }
 
 clone_at_commit() {
@@ -139,12 +145,19 @@ main() {
     gen_refdocs "${refdocs_bin}" "${clone_root}" "${template_dir}" \
         "${out_dir}/${KNATIVE_SERVING_OUT_FILE}" "${knative_serving_root}" "./pkg/apis"
 
+    cp "${out_dir}/${KNATIVE_SERVING_OUT_FILE}" "$SCRIPTDIR/../docs/reference/api/${KNATIVE_SERVING_OUT_FILE}"
+
     local knative_eventing_root
     knative_eventing_root="${clone_root}/src/${KNATIVE_EVENTING_IMPORT_PATH}"
     clone_at_commit "https://${KNATIVE_EVENTING_REPO}.git" "${KNATIVE_EVENTING_COMMIT}" \
         "${knative_eventing_root}"
     gen_refdocs "${refdocs_bin}" "${clone_root}" "${template_dir}" \
         "${out_dir}/${KNATIVE_EVENTING_OUT_FILE}" "${knative_eventing_root}" "./pkg/apis"
+
+    cp "${out_dir}/${KNATIVE_EVENTING_OUT_FILE}" "$SCRIPTDIR/../docs/reference/api/${KNATIVE_EVENTING_OUT_FILE}"
+
+    echo "Applying patches..."
+    git apply $SCRIPTDIR/patches/*.patch
 
     log "SUCCESS: Generated docs written to ${out_dir}/."
     log "You can commit these changes now."

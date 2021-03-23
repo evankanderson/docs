@@ -18,7 +18,8 @@ Notable features are:
 
 ## Prerequisites
 
-[Knative Eventing installation](./../../install/any-kubernetes-cluster.md#installing-the-eventing-component).
+1. [Knative Eventing installation](./../../install/any-kubernetes-cluster.md#installing-the-eventing-component).
+2. An Apache Kafka cluster (if you're just getting started you can follow [Strimzi Quickstart page](https://strimzi.io/quickstarts/)).
 
 ## Installation
 
@@ -104,6 +105,8 @@ The above `ConfigMap` is installed in the cluster. You can edit
 the configuration or create a new one with the same values
 depending on your needs.
 
+**NOTE:** The `default.topic.replication.factor` value must be less than or equal to the number of Kafka broker instances in your cluster. For example, if you only have one Kafka broker, the `default.topic.replication.factor` value should not be more than `1`.
+
 ## Set as default broker implementation
 
 To set the Kafka broker as the default implementation for all brokers in the Knative deployment,
@@ -142,6 +145,88 @@ data:
         name: kafka-broker-config
         namespace: knative-eventing
 ```
+
+## Security
+
+Apache Kafka supports different security features, Knative supports the followings:
+
+- [Authentication using `SASL` without encryption](#authentication-using-sasl)
+- [Authentication using `SASL` and encryption using `SSL`](#authentication-using-sasl-and-encryption-using-ssl)
+- [Authentication and encryption using `SSL`](#authentication-and-encryption-using-ssl)
+- [Encryption using `SSL` without client authentication](#encryption-using-ssl-without-client-authentication)
+
+To enable security features, in the `ConfigMap` referenced by `broker.spec.config`, we can reference a `Secret`:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+   name: kafka-broker-config
+   namespace: knative-eventing
+data:
+   # Other configurations
+   # ...
+
+   # Reference a Secret called my_secret
+   auth.secret.ref.name: my_secret
+```
+
+The `Secret` `my_secret` must exist in the same namespace of the `ConfigMap` referenced by `broker.spec.config`,
+in this case: `knative-eventing`.
+
+_Note: Certificates and keys must be in [`PEM` format](https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail)._
+
+### Authentication using SASL
+
+Knative supports the following SASL mechanisms:
+
+- `PLAIN`
+- `SCRAM-SHA-256`
+- `SCRAM-SHA-512`
+
+To use a specific SASL mechanism replace `<sasl_mechanism>` with the mechanism of your choice.
+
+### Authentication using SASL without encryption
+
+```bash
+kubectl create secret --namespace <namespace> generic <my_secret> \
+  --from-literal=protocol=SASL_PLAINTEXT \
+  --from-literal=sasl.mechanism=<sasl_mechanism> \
+  --from-literal=user=<my_user> \
+  --from-literal=password=<my_password>
+```
+
+### Authentication using SASL and encryption using SSL
+
+```bash
+kubectl create secret --namespace <namespace> generic <my_secret> \
+  --from-literal=protocol=SASL_SSL \
+  --from-literal=sasl.mechanism=<sasl_mechanism> \
+  --from-file=ca.crt=caroot.pem \
+  --from-literal=user=<my_user> \
+  --from-literal=password=<my_password>
+```
+
+### Encryption using SSL without client authentication
+
+```bash
+kubectl create secret --namespace <namespace> generic <my_secret> \
+  --from-literal=protocol=SSL \
+  --from-file=ca.crt=<my_caroot.pem_file_path> \
+  --from-literal=user.skip=true
+```
+
+### Authentication and encryption using SSL
+
+```bash
+kubectl create secret --namespace <namespace> generic <my_secret> \
+  --from-literal=protocol=SSL \
+  --from-file=ca.crt=<my_caroot.pem_file_path> \
+  --from-file=user.crt=<my_cert.pem_file_path> \
+  --from-file=user.key=<my_key.pem_file_path>
+```
+
+_NOTE: `ca.crt` can be omitted to fallback to use system's root CA set._
 
 ## Kafka Producer and Consumer configurations
 
